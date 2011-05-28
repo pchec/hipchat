@@ -11,6 +11,8 @@ function hipchat_send($message, $room = NULL) {
   require 'hipchat-php/HipChat.php';
   $room = variable_get('hipchat_default_room', 'Development');
   $site_name = variable_get('site_name', 'Drupal site');
+  // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
+  $site_name = substr($site_name, 0, 15);
   $token = variable_get("hipchat_token", NULL);
   $hc = new HipChat($token);
 
