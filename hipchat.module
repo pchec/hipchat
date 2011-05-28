@@ -61,10 +61,11 @@ function hipchat_comment(&$a1, $op) {
   switch ($op) {
     case "insert":
       $node = node_load($a1['nid']);
-      hipchat_send(t("@user_name added a new comment to \"@node_title\". !link", array(
+      hipchat_send(t("@user_name added a new comment to \"@node_title\". !link <br /> !teaser", array(
         '@user_name' => $user->name,
         '@node_title' => $node->title,
         '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $a1['cid'])),
+        '!teaser' => node_teaser($node->body, NULL, 100),
       )));
       break;
     case "update":
