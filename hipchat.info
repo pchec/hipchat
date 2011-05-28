@@ -1,1 +1,3 @@
 name = HipChat Integration
+description = "Integrates Drupal with chat software HipChat"
+core = 6.x

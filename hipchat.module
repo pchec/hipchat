@@ -1,0 +1,123 @@
+<?php
+
+/**
+ * @file Hook implementations for HipChat so we can respond to various system events.
+ */
+
+// TODO For now we'll hard code our event handling. Eventually we should make things more configurable
+// for site builders perhaps by integrating w/ core's action framework and Rules.
+
+function hipchat_send($message, $room = NULL) {
+  require 'hipchat-php/HipChat.php';
+  $room = variable_get('hipchat_default_room', 'Development');
+  $site_name = variable_get('site_name', 'Drupal site');
+  $token = variable_get("hipchat_token", NULL);
+  $hc = new HipChat($token);
+
+  $hc->message_room($room, $site_name, $message);
+}
+
+
+/**
+ * Implementation of hook_nodeapi()
+ */
+function hipchat_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  global $user;
+  switch ($op) {
+    case "delete":
+      hipchat_send(t("@user_name deleted  \"@node_title\" of type <em>@node_type</em>. !link", array(
+        '@user_name' => $user->name,
+        '@node_type' => $node->type,
+        '@node_title' => $node->title,
+      )));
+      break;
+    case "insert":
+      hipchat_send(t("@user_name created a new <em>@node_type</em>: \"@node_title\". !link", array(
+        '@user_name' => $user->name,
+        '@node_type' => $node->type,
+        '@node_title' => $node->title,
+        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+      )));
+      break;
+    case "update":
+      hipchat_send(t("@user_name edited \"@node_title\" of type <em>@node_type</em>. !link", array(
+        '@user_name' => $user->name,
+        '@node_type' => $node->type,
+        '@node_title' => $node->title,
+        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+      )));
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_comment()
+ */
+function hipchat_comment(&$a1, $op) {
+  global $user;
+  switch ($op) {
+    case "insert":
+      $node = node_load($a1['nid']);
+      hipchat_send(t("@user_name added a new comment to \"@node_title\". !link", array(
+        '@user_name' => $user->name,
+        '@node_title' => $node->title,
+        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $a1['cid'])),
+      )));
+      break;
+    case "update":
+      $node = node_load($a1['nid']);
+      hipchat_send(t("@user_name edited their comment to \"@node_title\". !link", array(
+        '@user_name' => $user->name,
+        '@node_title' => $node->title,
+        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $a1['cid'])),
+      )));
+      break;
+    case "delete":
+      $node = node_load($a1->nid);
+      hipchat_send(t("@user_name deleted a comment on \"@node_title\". !link", array(
+        '@user_name' => $user->name,
+        '@node_title' => $node->title,
+        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+      )));
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function hipchat_menu() {
+  $items = array();
+
+  // Put your menu items here.
+  $items['admin/settings/hipchat'] = array(
+    'title' => t('HipChat settings'),
+    'description' => t('Settings for the HipChat integration module'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('hipchat_admin_form'),
+    'access arguments' => array('administer hipchat'),
+  );
+
+  return $items;
+}
+
+/**
+ * Form for the HipChat admin page.
+ */
+function hipchat_admin_form() {
+  $form['hipchat_token'] = array(
+    '#type' => 'textfield',
+    '#title' => t('HipChat token'),
+    '#description' => t('Get an Admin API token from !hipchat_link', array('!hipchat_link' => l('your HipChat admin page', 'https://www.hipchat.com/group_admin/api'))),
+    '#default_value' => variable_get('hipchat_token', NULL),
+  );
+  $form['hipchat_default_room'] = array(
+    '#type' => 'textfield',
+    '#title' => t('HipChat default room'),
+    '#description' => t('Enter the default room to send notices. Enter the human name, not the room id'),
+    '#default_value' => variable_get('hipchat_default_room', NULL),
+  );
+
+  return system_settings_form($form);
+}
