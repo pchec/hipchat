@@ -16,6 +16,8 @@ function hipchat_send($message, $room = NULL) {
   $token = variable_get("hipchat_token", NULL);
   $hc = new HipChat($token);
 
+  drupal_alter('hipchat_send_message', array('room' => $room, 'message' => $message));
+
   $hc->message_room($room, $site_name, $message);
 }
 
