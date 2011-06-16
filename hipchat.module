@@ -21,7 +21,8 @@ function hipchat_send($message, $room = NULL) {
     return;
   }
 
-  drupal_alter('hipchat_send_message', array('room' => $room, 'message' => $message));
+  $data = array('room' => $room, 'message' => $message);
+  drupal_alter('hipchat_send_message', $data);
 
   $hc->message_room($room, $site_name, $message);
 }
