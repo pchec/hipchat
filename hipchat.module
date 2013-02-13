@@ -14,7 +14,7 @@ function hipchat_send($message, $room = NULL) {
   // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
   $site_name = substr($site_name, 0, 15);
   $token = variable_get("hipchat_token", NULL);
-  $hc = new HipChat($token);
+  $hc = new HipChat\HipChat($token);
 
   // Messages won't send properly without all three of these.
   if (empty($site_name) || empty($room) || empty($message)) {
