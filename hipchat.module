@@ -115,6 +115,13 @@ function hipchat_menu() {
 }
 
 /**
+ * Implementation of hook_perm()
+ */
+function hipchat_perm() {
+  return array('administer hipchat');
+}
+
+/**
  * Form for the HipChat admin page.
  */
 function hipchat_admin_form() {
