@@ -8,7 +8,7 @@
 // for site builders perhaps by integrating w/ core's action framework and Rules.
 
 function hipchat_send($message, $room = NULL) {
-  require 'hipchat-php/HipChat.php';
+  require 'hipchat-php//src/HipChat/HipChat.php';
   $room = variable_get('hipchat_default_room', 'Development');
   $site_name = variable_get('site_name', 'Drupal site');
   // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
@@ -18,6 +18,7 @@ function hipchat_send($message, $room = NULL) {
 
   // Messages won't send properly without all three of these.
   if (empty($site_name) || empty($room) || empty($message)) {
+    watchdog('hipchat', 'Skipping sending a message because site_name, room or message were empty');
     return;
   }
 
@@ -27,85 +28,95 @@ function hipchat_send($message, $room = NULL) {
   $hc->message_room($room, $site_name, $message);
 }
 
+/**
+ * Implements hook_node_delete().
+ */
+function hipchat_node_delete($node) {
+  global $user;
+  hipchat_send(t('@user_name deleted "@node_title" of type <em>@node_type</em>. !link', array(
+    '@user_name' => $user->name,
+    '@node_type' => $node->type,
+    '@node_title' => $node->title,
+    '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+  )));
+}
 
 /**
- * Implementation of hook_nodeapi()
+ * Implements hook_node_insert().
  */
-function hipchat_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+function hipchat_node_insert($node) {
   global $user;
-  switch ($op) {
-    case "delete":
-      hipchat_send(t("@user_name deleted  \"@node_title\" of type <em>@node_type</em>. !link", array(
-        '@user_name' => $user->name,
-        '@node_type' => $node->type,
-        '@node_title' => $node->title,
-      )));
-      break;
-    case "insert":
-      hipchat_send(t("@user_name created a new <em>@node_type</em>: \"@node_title\":<br /> !teaser !link", array(
-        '@user_name' => $user->name,
-        '@node_type' => $node->type,
-        '@node_title' => $node->title,
-        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
-        '!teaser' => node_teaser($node->body, NULL, 250) . "&#8230;",
-      )));
-      break;
-    case "update":
-      hipchat_send(t("@user_name edited \"@node_title\" of type <em>@node_type</em>. !link", array(
-        '@user_name' => $user->name,
-        '@node_type' => $node->type,
-        '@node_title' => $node->title,
-        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
-      )));
-      break;
-  }
+  hipchat_send(t('@user_name created a new <em>@node_type</em>: "@node_title":<br /> !link', array(
+    '@user_name' => $user->name,
+    '@node_type' => $node->type,
+    '@node_title' => $node->title,
+    '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+  )));
 }
 
 
 /**
- * Implementation of hook_comment()
+ * Implements hook_node_update().
  */
-function hipchat_comment(&$a1, $op) {
+function hipchat_node_update(&$node) {
   global $user;
-  switch ($op) {
-    case "insert":
-      $node = node_load($a1['nid']);
-      hipchat_send(t("@user_name added a new comment to \"@node_title\":<br /> !teaser !link", array(
-        '@user_name' => $user->name,
-        '@node_title' => $node->title,
-        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $a1['cid'])),
-        '!teaser' => node_teaser($a1['comment'], NULL, 250) . "&#8230;",
-      )));
-      break;
-    case "update":
-      $node = node_load($a1['nid']);
-      hipchat_send(t("@user_name edited their comment to \"@node_title\". !link", array(
-        '@user_name' => $user->name,
-        '@node_title' => $node->title,
-        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $a1['cid'])),
-      )));
-      break;
-    case "delete":
-      $node = node_load($a1->nid);
-      hipchat_send(t("@user_name deleted a comment on \"@node_title\". !link", array(
-        '@user_name' => $user->name,
-        '@node_title' => $node->title,
-        '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
-      )));
-      break;
-  }
+  hipchat_send(t('@user_name edited \"@node_title\" of type <em>@node_type</em>. !link', array(
+    '@user_name' => $user->name,
+    '@node_type' => $node->type,
+    '@node_title' => $node->title,
+    '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+  )));
 }
 
 /**
- * Implementation of hook_menu()
+ * Implements hook_comment_insert().
+ */
+function hipchat_comment_insert($comment) {
+  global $user;
+  $node = node_load($comment->nid);
+  hipchat_send(t('@user_name added a new comment to "@node_title":<br /> !link', array(
+    '@user_name' => $user->name,
+    '@node_title' => $node->title,
+    '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $comment->cid)),
+  )));
+}
+
+/**
+ * Implements hook_comment_update().
+ */
+function hipchat_comment_update($comment) {
+  global $user;
+  $node = node_load($comment->nid);
+  hipchat_send(t('@user_name edited their comment to "@node_title". !link', array(
+    '@user_name' => $user->name,
+    '@node_title' => $node->title,
+    '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $comment->cid)),
+  )));
+}
+
+
+/**
+ * Implements hook_comment_delete().
+ */
+function hipchat_comment_delete($comment) {
+  global $user;
+  $node = node_load($comment->nid);
+  hipchat_send(t('@user_name deleted a comment on "@node_title". !link', array(
+    '@user_name' => $user->name,
+    '@node_title' => $node->title,
+    '!link' => l('Link', 'node/' . $node->nid, array('absolute' => TRUE)),
+  )));
+}
+
+
+/**
+ * Implements hook_menu().
  */
 function hipchat_menu() {
   $items = array();
-
-  // Put your menu items here.
-  $items['admin/settings/hipchat'] = array(
-    'title' => t('HipChat settings'),
-    'description' => t('Settings for the HipChat integration module'),
+  $items['admin/config/services/hipchat'] = array(
+    'title' => 'HipChat settings',
+    'description' => 'Settings for the HipChat integration module',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('hipchat_admin_form'),
     'access arguments' => array('administer hipchat'),
@@ -115,10 +126,15 @@ function hipchat_menu() {
 }
 
 /**
- * Implementation of hook_perm()
+ * Implements hook_permission().
  */
-function hipchat_perm() {
-  return array('administer hipchat');
+function hipchat_permission() {
+  return array(
+    'administer hipchat' => array(
+      'title' => t('Administer HipChat'),
+      'description' => t('Perform administration tasks for HipChat.'),
+    ),
+  );
 }
 
 /**
