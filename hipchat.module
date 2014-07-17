@@ -111,7 +111,7 @@ function hipchat_node_insert($node) {
 /**
  * Implements hook_node_update().
  */
-function hipchat_node_update(&$node) {
+function hipchat_node_update($node) {
   global $user;
   hipchat_send(t('@user_name edited \"@node_title\" of type <em>@node_type</em>. !link', array(
     '@user_name' => $user->name,
