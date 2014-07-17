@@ -62,7 +62,7 @@ function hipchat_admin_form() {
  *   The room to send it to (defaults to the sitewide value).
  */
 function hipchat_send($message, $room = NULL) {
-  require 'hipchat-php//src/HipChat/HipChat.php';
+  require_once 'hipchat-php//src/HipChat/HipChat.php';
   $room = variable_get('hipchat_default_room', 'Development');
   $site_name = variable_get('site_name', 'Drupal site');
   // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
