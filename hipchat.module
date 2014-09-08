@@ -91,7 +91,16 @@ function hipchat_send($message, $room = NULL, $site_name = NULL) {
   $data = array('room' => $room, 'message' => $message);
   drupal_alter('hipchat_send_message', $data);
 
-  $hc->message_room($room, $site_name, $message);
+  try {
+    $hc->message_room($room, $site_name, $message);
+  }
+  catch (HipChat\HipChat_Exception $e) {
+    $params = array(
+      '@room' => $room,
+      '@msg' => $e->getMessage(),
+    );
+    watchdog('hipchat', 'Error sending message to room @room: @msg', $params, WATCHDOG_ERROR);
+  }
 }
 
 /**
