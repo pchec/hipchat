@@ -66,8 +66,6 @@ function hipchat_admin_form() {
  * @param string $message
  *   The message to send. Keep it relatively brief.
  * @param string $room
- *   Required message to send. Keep it relatively brief.
- * @param string $room
  *   Optional room to send it to (defaults to the sitewide value).
  * @param string $site_name
  *   Optional "site name" defaults to the Drupal site name.
@@ -208,15 +206,24 @@ function hipchat_comment_delete($comment) {
 /**
  * Helper function determines if a Node is of an enabled type.
  *
- * @param stdClass $node A Node object with a 'type' property.
+ * @param object $node 
+ *   A Node object with a 'type' property.
+ *
+ * @return mixed
+ *   Returns TRUE if hipchat is enabled for all types.
  */
 function _hipchat_is_enabled_type($node) {
   $types = variable_get('hipchat_content_types', array());
   // This filter gets us an empty array if no types have been selected.
-  $types = array_filter($types, function ($value) { return $value !== 0;} );
+  $types = array_filter($types, function ($value) {
+    return $value !== 0;
+  }
+  );
+  // If none are selected it's enabled for all types.
   if (empty($types)) {
     return TRUE;
-  } else {
+  }
+  else {
     return array_key_exists($node->type, $types);
   }
 }
