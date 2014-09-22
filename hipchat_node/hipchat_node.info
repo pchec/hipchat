@@ -1,0 +1,7 @@
+name = HipChat Node
+description = "Integrates with the hipchat module for node CRUD"
+core = 7.x
+package = HipChat
+configure = admin/config/services/hipchat
+
+dependencies[] = hipchat

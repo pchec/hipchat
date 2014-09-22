@@ -1,4 +1,5 @@
 name = HipChat Integration
 description = "Integrates Drupal with chat software HipChat"
 core = 7.x
+package = HipChat
 configure = admin/config/services/hipchat
