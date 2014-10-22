@@ -34,6 +34,38 @@ function hipchat_permission() {
 }
 
 /**
+ * Implements hook_libraries_info().
+ */
+function hipchat_libraries_info() {
+  $library['hipchat-php'] = array(
+    'name' => 'hipchat-php',
+    'vendor url' => 'https://github.com/hipchat/hipchat-php',
+    'download url' => 'https://github.com/hipchat/hipchat-php',
+    'path' => 'src/HipChat',
+    'version callback' => 'hipchat_version_callback',
+    'files' => array(
+      'php' => array(
+        'HipChat.php',
+      ),
+    ),
+  );
+
+  return $library;
+}
+
+/**
+ * Helper function to validate libraries_info version call.
+ *
+ * @see hook_libraries_info()
+ *
+ * @return bool
+ *   Since hipchat-php has no version number specified anywhere, return TRUE
+ */
+function hipchat_version_callback() {
+  return TRUE;
+}
+
+/**
  * Form for the HipChat admin page.
  */
 function hipchat_admin_form() {
@@ -64,33 +96,37 @@ function hipchat_admin_form() {
  *   Optional "site name" defaults to the Drupal site name.
  */
 function hipchat_send($message, $room = NULL, $site_name = NULL) {
-  require_once 'hipchat-php//src/HipChat/HipChat.php';
+  if (($library = libraries_load('hipchat-php')) && $library['loaded']) {
+    // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
+    $room = empty($room) ? variable_get('hipchat_default_room', 'Development') : $room;
+    $site_name = empty($site_name) ? variable_get('site_name', 'Drupal site') : $site_name;
+    $site_name = substr($site_name, 0, 15);
+    $token = variable_get("hipchat_token", NULL);
+    $hc = new HipChat\HipChat($token);
 
-  // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
-  $room = empty($room) ? variable_get('hipchat_default_room', 'Development') : $room;
-  $site_name = empty($site_name) ? variable_get('site_name', 'Drupal site') : $site_name;
-  $site_name = substr($site_name, 0, 15);
-  $token = variable_get("hipchat_token", NULL);
-  $hc = new HipChat\HipChat($token);
+    // Messages won't send properly without all three of these.
+    if (empty($site_name) || empty($room) || empty($message)) {
+      watchdog('hipchat', 'Skipping sending a message because site_name, room or message were empty');
+      return;
+    }
 
-  // Messages won't send properly without all three of these.
-  if (empty($site_name) || empty($room) || empty($message)) {
-    watchdog('hipchat', 'Skipping sending a message because site_name, room or message were empty');
-    return;
+    $data = array('room' => $room, 'message' => $message);
+    drupal_alter('hipchat_send_message', $data);
+
+    try {
+      $hc->message_room($room, $site_name, $message);
+    }
+    catch (HipChat\HipChat_Exception $e) {
+      $params = array(
+        '@room' => $room,
+        '@msg' => $e->getMessage(),
+      );
+      watchdog('hipchat', 'Error sending message to room @room: @msg', $params, WATCHDOG_ERROR);
+    }
   }
-
-  $data = array('room' => $room, 'message' => $message);
-  drupal_alter('hipchat_send_message', $data);
-
-  try {
-    $hc->message_room($room, $site_name, $message);
+  else {
+    watchdog('hipchat',
+      'An error loading the hipchat-php library occurred.',
+      array(), WATCHDOG_ERROR);
   }
-  catch (HipChat\HipChat_Exception $e) {
-    $params = array(
-      '@room' => $room,
-      '@msg' => $e->getMessage(),
-    );
-    watchdog('hipchat', 'Error sending message to room @room: @msg', $params, WATCHDOG_ERROR);
-  }
-
 }
