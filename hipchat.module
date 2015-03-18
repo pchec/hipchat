@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Hook implementations for HipChat so we can respond to various system events.
@@ -10,13 +9,49 @@
  */
 function hipchat_menu() {
   $items = array();
-  $items['admin/config/services/hipchat'] = array(
-    'title' => 'HipChat settings',
-    'description' => 'Settings for the HipChat integration module',
+  $hipchat_module_url = 'admin/config/services/hipchat';
+  $items[$hipchat_module_url] = array(
+    'title' => 'HipChat',
+    'description' => 'Configure HipChat module.',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer hipchat'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+  $items[$hipchat_module_url . '/config'] = array(
+    'title' => 'Configuration',
+    'description' => 'Adjust HipChat settings.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('hipchat_admin_form'),
     'access arguments' => array('administer hipchat'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'includes/hipchat.admin.inc',
   );
+  $items[$hipchat_module_url . '/message'] = array(
+    'title' => 'Send a message',
+    'description' => 'Allows to send a test message to the HipChat.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('hipchat_send_test_message_form'),
+    'access arguments' => array('administer hipchat'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'includes/hipchat.message.inc',
+  );
+  $user_base = array(
+    'page callback' => 'drupal_get_form',
+    'access arguments' => array(1),
+    'access callback' => 'hipchat_user_profile_access',
+    'file' => 'includes/hipchat.user.inc',
+  );
+	$items['user/%user/hipchat'] = array(
+    'title' => 'HipChat',
+    'description' => 'Register for a HipChat account.',
+    'page arguments' => array(
+      'hipchat_user_form',
+      1,
+		),
+		'type' => MENU_LOCAL_TASK,
+		'weight' => 1,
+	) + $user_base;
 
   return $items;
 }
@@ -30,103 +65,199 @@ function hipchat_permission() {
       'title' => t('Administer HipChat'),
       'description' => t('Perform administration tasks for HipChat.'),
     ),
-  );
-}
-
-/**
- * Implements hook_libraries_info().
- */
-function hipchat_libraries_info() {
-  $library['hipchat-php'] = array(
-    'name' => 'hipchat-php',
-    'vendor url' => 'https://github.com/hipchat/hipchat-php',
-    'download url' => 'https://github.com/hipchat/hipchat-php',
-    'path' => 'src/HipChat',
-    'version callback' => 'hipchat_version_callback',
-    'files' => array(
-      'php' => array(
-        'HipChat.php',
-      ),
+    'use hipchat' => array(
+      'title' => t('Use HipChat'),
+      'description' => t('Register on HipChat and use it as a regular user.'),
     ),
   );
-
-  return $library;
 }
 
 /**
- * Helper function to validate libraries_info version call.
- *
- * @see hook_libraries_info()
- *
- * @return bool
- *   Since hipchat-php has no version number specified anywhere, return TRUE
+ * Access callback to HipChat form on user profiles.
  */
-function hipchat_version_callback() {
-  return TRUE;
+  function hipchat_user_profile_access($account) {
+  global $user;
+  return (($user->uid == $account->uid && user_access('use hipchat')) || user_access('administer hipchat'));
 }
 
 /**
- * Form for the HipChat admin page.
- */
-function hipchat_admin_form() {
-  $form['hipchat_token'] = array(
-    '#type' => 'textfield',
-    '#title' => t('HipChat token'),
-    '#description' => t('Get an Admin API token from !hipchat_link', array('!hipchat_link' => l(t('your HipChat admin page'), 'https://www.hipchat.com/group_admin/api'))),
-    '#default_value' => variable_get('hipchat_token', NULL),
-  );
-  $form['hipchat_default_room'] = array(
-    '#type' => 'textfield',
-    '#title' => t('HipChat default room'),
-    '#description' => t('Enter the default room to send notices. Enter the human name, not the room id'),
-    '#default_value' => variable_get('hipchat_default_room', NULL),
-  );
-
-  return system_settings_form($form);
-}
-
-/**
- * A wrapper around the HipChat.php to send messages.
+ * Sends a message to a HipChat room.
  *
  * @param string $message
  *   The message to send. Keep it relatively brief.
  * @param string $room
- *   Optional room to send it to (defaults to the sitewide value).
- * @param string $site_name
- *   Optional "site name" defaults to the Drupal site name.
+ *   Room to send the message to.
  */
-function hipchat_send($message, $room = NULL, $site_name = NULL) {
-  if (($library = libraries_load('hipchat-php')) && $library['loaded']) {
-    // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
-    $room = empty($room) ? variable_get('hipchat_default_room', 'Development') : $room;
-    $site_name = empty($site_name) ? variable_get('site_name', 'Drupal site') : $site_name;
-    $site_name = substr($site_name, 0, 15);
-    $token = variable_get("hipchat_token", NULL);
-    $hc = new HipChat\HipChat($token);
-
-    // Messages won't send properly without all three of these.
-    if (empty($site_name) || empty($room) || empty($message)) {
-      watchdog('hipchat', 'Skipping sending a message because site_name, room or message were empty');
-      return;
-    }
-
-    $data = array('room' => $room, 'message' => $message);
-    drupal_alter('hipchat_send_message', $data);
-
-    try {
-      $hc->message_room($room, $site_name, $message);
-    }
-    catch (HipChat\HipChat_Exception $e) {
-      $params = array(
-        '@room' => $room,
-        '@msg' => $e->getMessage(),
-      );
-      watchdog('hipchat', 'Error sending message to room @room: @msg', $params, WATCHDOG_ERROR);
-    }
+function hipchat_send($message, $room, $token = null) {
+  if (empty($token)) {
+    $token = variable_get('hipchat_token', NULL);
   }
-  else {
-    watchdog('hipchat',
-      'An error loading the hipchat-php library occurred.',
-      array(), WATCHDOG_ERROR);
+  $room = empty($room) ? variable_get('hipchat_default_room', 'Lobby') : $room;
+  $headers = array(
+    'Content-Type' => 'application/json',
+  );
+  $message_options['message'] = $message;
+  $sending_data = drupal_json_encode($message_options);
+  $options = array(
+    'method' => 'POST',
+    'data' => $sending_data,
+    'headers' => $headers,
+  );
+  $sending_url = 'https://api.hipchat.com/v2/room/' . urlencode($room) . '/notification?auth_token=' . $token;
+  $result = drupal_http_request($sending_url, $options);
+  if (isset($result->code) && $result->code != 204) {
+		$params = array(
+			'@room' => $room,
+			'@msg' => $result->error,
+		);
+		watchdog('hipchat', 'Error sending message to room @room: @msg', $params, WATCHDOG_ERROR);
+	}
+}
+
+/**
+ * Creates a user in HipChat.
+ *
+ * @param string $username
+ *   Name of the user to be created.
+ * @param string $email
+ *   Email address of the user.
+ * @param string $password
+ *   Password for the user.
+ */
+function hipchat_create_user($name, $email, $password) {
+  $token = variable_get('hipchat_admin_token', NULL);
+  $headers = array(
+    'Content-Type' => 'application/json',
+  );
+  $message_options = array(
+		'name' => $name,
+		'email' => $email,
+    'password' => $password,
+	);
+  $sending_data = drupal_json_encode($message_options);
+  $options = array(
+    'method' => 'POST',
+    'data' => $sending_data,
+    'headers' => $headers,
+  );
+  $sending_url = 'https://api.hipchat.com/v2/user?auth_token=' . $token;
+  $result = drupal_http_request($sending_url, $options);
+  if (isset($result->code) && $result->code != 201) {
+    $error = drupal_json_decode($result->data, true);
+    $error_message = '';
+    if (isset($error) && is_array($error)) {
+      $error_message = isset($error['error']['message']) ? $error['error']['message'] :'';
+    }
+    $msg = 'Error creating HipChat user ' . $name . ': ' . $error_message . '.';
+    drupal_set_message($msg, 'error');
+		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
+	} elseif (isset($result->code) && $result->code == 201) {
+    $msg = 'Created HipChat user ' . $name . '.';
+    drupal_set_message($msg, 'status');
+		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
+  }
+}
+
+/**
+ * Gets user information from HipChat.
+ *
+ * @param string $id_or_email
+ *   HipChat user id or email.
+ */
+function hipchat_get_user($id_or_email) {
+  $token = variable_get('hipchat_admin_token', NULL);
+  $headers = array(
+    'Content-Type' => 'application/json',
+  );
+  $options = array(
+    'method' => 'GET',
+    'headers' => $headers,
+  );
+  $sending_url = 'https://api.hipchat.com/v2/user/' . $id_or_email . '?auth_token=' . $token;
+  $result = drupal_http_request($sending_url, $options);
+  if (isset($result->code) && $result->code != 200) {
+    $error = drupal_json_decode($result->data, true);
+    $error_message = '';
+    if (isset($error) && is_array($error)) {
+      $error_message = isset($error['error']['message']) ? $error['error']['message'] :'';
+    }
+    $msg = 'Cannot retrieve data of HipChat user ' . $id_or_email . ': ' . $error_message . '.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_NOTICE);
+    return null;
+  } else {
+    return drupal_json_decode($result->data, true);
+  }
+}
+
+/**
+ * Updates user information in HipChat.
+ *
+ * @param string $id_or_email
+ *   HipChat user id or email.
+ * @param array $changes
+ *   Modified user attributes given as array('name' => 'value').
+ */
+function hipchat_update_user($id_or_email, $changes) {
+  $user_data = hipchat_get_user($id_or_email);
+  if (!is_array($user_data)) {
+    return null;
+  }
+  $new_user_data = array_replace($user_data, $changes);
+  $sending_data = drupal_json_encode($new_user_data);
+  $token = variable_get('hipchat_admin_token', NULL);
+  $headers = array(
+    'Content-Type' => 'application/json',
+  );
+  $options = array(
+    'method' => 'PUT',
+    'data' => $sending_data,
+    'headers' => $headers,
+  );
+  $sending_url = 'https://api.hipchat.com/v2/user/' . $id_or_email . '?auth_token=' . $token;
+  $result = drupal_http_request($sending_url, $options);
+  if (isset($result->code) && $result->code != 204) {
+    $error = drupal_json_decode($result->data, true);
+    $error_message = '';
+    if (isset($error) && is_array($error)) {
+      $error_message = isset($error['error']['message']) ? $error['error']['message'] :'';
+    }
+    $msg = 'Error updating HipChat user ' . $new_user_data['name'] . ': ' . $error_message . '.';
+    drupal_set_message($msg, 'error');
+		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
+	} elseif (isset($result->code) && $result->code == 204) {
+    $msg = 'Updated HipChat user ' . $new_user_data['name'] . '.';
+    drupal_set_message($msg, 'status');
+		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
+  }
+}
+
+/**
+ * Deltes user from HipChat.
+ *
+ * @param string $id_or_email
+ *   HipChat user id or email.
+ */
+function hipchat_delete_user($id_or_email) {
+  $token = variable_get('hipchat_admin_token', NULL);
+  $headers = array(
+    'Content-Type' => 'application/json',
+  );
+  $options = array(
+    'method' => 'DELETE',
+    'headers' => $headers,
+  );
+  $sending_url = 'https://api.hipchat.com/v2/user/' . $id_or_email . '?auth_token=' . $token;
+  $result = drupal_http_request($sending_url, $options);
+  if (isset($result->code) && $result->code != 204) {
+    $error = drupal_json_decode($result->data, true);
+    $error_message = '';
+    if (isset($error) && is_array($error)) {
+      $error_message = isset($error['error']['message']) ? $error['error']['message'] :'';
+    }
+    $msg = 'Cannot delete HipChat user ' . $id_or_email . ': ' . $error_message . '.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
+    return null;
+  } else {
+    return drupal_json_decode($result->data, true);
   }
 }
