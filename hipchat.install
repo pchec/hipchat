@@ -1,0 +1,41 @@
+<?php
+/**
+ * Implements hook_install().
+ */
+function hipchat_install() {
+  // Check if our field is not already created.
+  if (!field_info_field('field_hipchat_user_id')) {
+    $field = array(
+        'field_name' => 'field_hipchat_user_id', 
+        'type' => 'number_integer', 
+    );
+    field_create_field($field);
+
+    // Create the instance on the bundle.
+    $instance = array(
+        'field_name' => 'field_hipchat_user_id', 
+        'entity_type' => 'user', 
+        'bundle' => 'user', 
+        'label' => 'HipChat User ID', 
+        // If you don't set the "required" property then the field wont be required by default.
+        'required' => FALSE,
+        'settings' => array(
+           // Here you inform either or not you want this field showing up on the registration form.
+            'user_register_form' => 0,
+        ),
+        'widget' => array(
+            'type' => 'number',
+            'weight' => '5',
+        ), 
+    );
+    field_create_instance($instance);
+  }
+}
+
+
+function hipchat_uninstall() {
+  // Check if our field is not already created.
+  if (field_info_field('field_hipchat_user_id')) {
+    field_delete_field('field_hipchat_user_id');
+  }
+}

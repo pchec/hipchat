@@ -57,33 +57,18 @@ function hipchat_rules_action_info() {
     'label' => t('Update a user in HipChat'),
     'group' => t('HipChat'),
     'parameter' => array(
-      'current_email' => array(
-        'type' => 'text',
-        'label' => t('Current email'),
-      ),
-      'new_email' => array(
-        'type' => 'text',
-        'label' => t('New email'),
-        'optional' => TRUE,
-      ),
-      'name' => array(
-        'type' => 'text',
-        'label' => t('Name'),
-        'optional' => TRUE,
-      ),
-      'title' => array(
-        'type' => 'text',
-        'label' => t('Title'),
-        'optional' => TRUE,
+      'user' => array(
+        'type' => 'user',
+        'label' => t('Updated user'),
       ),
       'password' => array(
         'type' => 'text',
-        'label' => t('Password'),
+        'label' => t('New password'),
         'optional' => TRUE,
       ),
-      'mention_name' => array(
+      'current_email' => array(
         'type' => 'text',
-        'label' => t('Mention name'),
+        'label' => t('Old email'),
         'optional' => TRUE,
       ),
     ),
@@ -162,28 +147,10 @@ function hipchat_rules_create_user_action($name, $email, $password = null) {
 }
 
 /**
- * Rules action for creating a user in HipChat.
+ * Rules action for updating a user in HipChat.
  */
-function hipchat_rules_update_user_action($current_email, $new_email = null, $name = null, $title = null, $password = null, $mention_name = null) {
-  if (!empty($current_email)) {
-    $updates = array();
-    if (!empty($new_email)) {
-      $updates['email'] = $new_email;
-    }
-    if (!empty($name)) {
-      $updates['name'] = $name;
-    }
-    if (!empty($password)) {
-      $updates['password'] = $password;
-    }
-    if (!empty($mention_name)) {
-      $updates['mention_name'] = $mention_name;
-    }
-    if (!empty($title)) {
-      $updates['title'] = $title;
-    }
-    hipchat_update_user($current_email, $updates);
-  }
+function hipchat_rules_update_user_action($user, $password = null, $old_email = null) {
+  hipchat_sync_user($user, $password, $old_email);
 }
 
 /**
