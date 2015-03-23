@@ -122,6 +122,36 @@ function hipchat_rules_action_info() {
       ),
     ),
   );
+  $actions['hipchat_delete_user_from_room'] = array(
+    'base' => 'hipchat_rules_delete_user_from_room_action',
+    'label' => t('Delete user from a room'),
+    'group' => t('HipChat'),
+    'parameter' => array(
+      'room_id_or_name' => array(
+        'type' => 'text',
+        'label' => t('HipChat room ID or name'),
+      ),
+      'user_id_or_email' => array(
+        'type' => 'text',
+        'label' => t('HipChat user ID or email'),
+      ),
+    ),
+  );
+  $actions['hipchat_add_user_to_room'] = array(
+    'base' => 'hipchat_rules_add_user_to_room_action',
+    'label' => t('Add user to a room'),
+    'group' => t('HipChat'),
+    'parameter' => array(
+      'room_id_or_name' => array(
+        'type' => 'text',
+        'label' => t('HipChat room ID or name'),
+      ),
+      'user_id_or_email' => array(
+        'type' => 'text',
+        'label' => t('HipChat user ID or email'),
+      ),
+    ),
+  );
   return $actions;
 }
 
@@ -165,4 +195,18 @@ function hipchat_rules_delete_user_action($id_or_email) {
  */
 function hipchat_rules_get_user_data_action($id_or_email) {
   return hipchat_get_user($id_or_email);
+}
+
+/**
+ * Rules action for adding a user to a HipChat room.
+ */
+function hipchat_rules_add_user_to_room_action($room_id_or_name, $user_id_or_email) {
+  hipchat_add_user_to_room($room_id_or_name, $user_id_or_email);
+}
+
+/**
+ * Rules action for deleting a user from a HipChat room.
+ */
+function hipchat_rules_delete_user_from_room_action($room_id_or_name, $user_id_or_email) {
+  hipchat_delete_user_from_room($room_id_or_name, $user_id_or_email);
 }

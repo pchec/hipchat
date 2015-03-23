@@ -255,7 +255,7 @@ function hipchat_update_user_photo($user) {
 }
 
 /**
- * Deltes user from HipChat.
+ * Deletes user from HipChat.
  *
  * @param string $id_or_email
  *   HipChat user id or email.
@@ -322,3 +322,46 @@ function hipchat_send_request($type, $api_call, $params = null, $token = null) {
   }
   return $error_message;
 }
+
+/**
+ * Deletes user from a room.
+ *
+ * @param string $room
+ *   HipChat room id or name.
+ * @param string $user
+ *   HipChat user id or email.
+ */
+function hipchat_delete_user_from_room($room, $user) {
+  $api_call = '/room/' . $room . '/member/' . $user;
+  $result = hipchat_send_request('DELETE', $api_call);
+  $error = hipchat_get_error_msg($result, 204);
+  if (!empty($error)) {
+    $msg = 'Cannot delete user ' . $user . ' from room ' . $room . ': ' . $error . '.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
+	} else {
+    $msg = 'Deleted user ' . $user . ' from room ' . $room . ': ' . $error . '.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
+  }
+}
+
+/**
+ * Deletes user from a room.
+ *
+ * @param string $room
+ *   HipChat room id or name.
+ * @param string $user
+ *   HipChat user id or email.
+ */
+function hipchat_add_user_to_room($room, $user) {
+  $api_call = '/room/' . $room . '/member/' . $user;
+  $result = hipchat_send_request('PUT', $api_call);
+  $error = hipchat_get_error_msg($result, 204);
+  if (!empty($error)) {
+    $msg = 'Cannot add user ' . $user . ' to room ' . $room . ': ' . $error . '.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
+	} else {
+    $msg = 'Added user ' . $user . ' to room ' . $room . ': ' . $error . '.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
+  }
+}
+
