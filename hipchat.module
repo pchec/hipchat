@@ -127,27 +127,29 @@ function hipchat_send($message, $room = null, $token = null) {
  * @param string $password
  *   Password for the user.
  */
-function hipchat_create_user($name, $email, $password) {
+function hipchat_create_user($user, $password) {
   $params = array(
-		'name' => $name,
-		'email' => $email,
+		'name' => hipchat_get_user_name($user),
+		'email' => $user->mail,
     'password' => $password,
 	);
   $api_call = '/user';
   $result = hipchat_send_request('POST', $api_call, $params);
   $error = hipchat_get_error_msg($result, 201);
   if (!empty($error)) {
-    $msg = 'Error creating HipChat user ' . $name . ': ' . $error . '.';
+    $msg = 'Error creating HipChat user ' . $params['name'] . ': ' . $error . '.';
     drupal_set_message($msg, 'error');
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
-    $user = user_load_by_mail($email);
     $user_data = drupal_json_decode($result->data, true);
     $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'] = $user_data['id'];
-    user_save($user, array('hipchat_user_id' => $user_data['id']));
-    $msg = 'Created HipChat user ' . $name . '.';
+    $msg = 'Created HipChat user ' . $params['name'] . '.';
+    if (module_exists('rules')) {
+      rules_invoke_event('hipchat_user_registered', $user);
+    }
     drupal_set_message($msg, 'status');
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
+    hipchat_update_user_photo($user);
   }
 }
 
@@ -171,27 +173,51 @@ function hipchat_get_user($id_or_email) {
 }
 
 /**
- * Updates user information in HipChat.
+ * Obtains HipChat user ID.
  *
- * @param string $user
- *   Modified user.
+ * @param user $user
+ *   Drupal user.
  */
-function hipchat_sync_user($user, $new_pass = null, $old_email = null) {
+function hipchat_get_user_id($user, $old_email = NULL) {
   $id_or_email = field_get_items('user', $user, 'field_hipchat_user_id');
   if ($id_or_email) {
     $id_or_email = $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'];
-  } elseif (!$id_or_email && !empty($old_email)) {
+  } elseif (!empty($old_email)) {
     $id_or_email = $old_email;
   } else {
     $id_or_email = $user->mail;
   }
+  return $id_or_email;
+}
+
+/**
+ * Obtains HipChat user ID.
+ *
+ * @param user $user
+ *   Drupal user.
+ */
+function hipchat_get_user_mention($user_name) {
+  $user_name = preg_replace('/[^a-zA-Z0-9\s]/', '', $user_name);
+  $user_name = str_replace(' en ', 'En', $user_name);
+  $user_name = preg_replace('/\s+/', '', $user_name);
+  return $user_name;
+}
+
+/**
+ * Updates user information in HipChat.
+ *
+ * @param user $user
+ *   Modified user.
+ */
+function hipchat_sync_user($user, $new_pass = null, $old_email = null) {
+  $id_or_email = hipchat_get_user_id($user, $old_email);
   $user_data = hipchat_get_user($id_or_email);
   if (!is_array($user_data)) {
     return;
   }
   $updates = array(
-    'name' => $user->name,
-    'mention_name' => preg_replace('/\s+/', '', $user->name),
+    'name' => hipchat_get_user_name($user),
+    'mention_name' => hipchat_get_user_mention($user->name),
     'timezone' => $user->timezone,
     'email' => $user->mail,
   );
@@ -221,12 +247,7 @@ function hipchat_sync_user($user, $new_pass = null, $old_email = null) {
  *   Modified user.
  */
 function hipchat_update_user_photo($user) {
-  $id_or_email = field_get_items('user', $user, 'field_hipchat_user_id');
-  if ($id_or_email) {
-    $id_or_email = $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'];
-  } else {
-    $id_or_email = $user->mail;
-  }
+  $id_or_email = hipchat_get_user_id($user);
   $picture = null;
   if (!isset($user->picture)) {
     if (module_exists('eve_api')) {
@@ -262,15 +283,19 @@ function hipchat_update_user_photo($user) {
  * @param string $id_or_email
  *   HipChat user id or email.
  */
-function hipchat_delete_user($id_or_email) {
+function hipchat_delete_user($user) {
+  $id_or_email = hipchat_get_user_id($user);
   $api_call = '/user/' . $id_or_email;
   $result = hipchat_send_request('DELETE', $api_call);
   $error = hipchat_get_error_msg($result, 204);
   if (!empty($error)) {
-    $msg = 'Cannot delete HipChat user ' . $id_or_email . ': ' . $error . '.';
+    $msg = 'Cannot delete user ' . $user->name . ' from HipChat: ' . $error . '.';
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
-    $msg = 'Deleted HipChat user ' . $id_or_email . '.';
+    $msg = 'Deleted user ' . $user->name . ' from HipChat.';
+    if (module_exists('rules')) {
+      rules_invoke_event('hipchat_user_deleted', $user);
+    }
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
   }
 }
@@ -341,7 +366,7 @@ function hipchat_delete_user_from_room($room, $user) {
     $msg = 'Cannot delete user ' . $user . ' from room ' . $room . ': ' . $error . '.';
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
-    $msg = 'Deleted user ' . $user . ' from room ' . $room . ': ' . $error . '.';
+    $msg = 'Deleted user ' . $user . ' from room ' . $room . '.';
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
   }
 }
@@ -362,8 +387,21 @@ function hipchat_add_user_to_room($room, $user) {
     $msg = 'Cannot add user ' . $user . ' to room ' . $room . ': ' . $error . '.';
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
-    $msg = 'Added user ' . $user . ' to room ' . $room . ': ' . $error . '.';
+    $msg = 'Added user ' . $user . ' to room ' . $room . '.';
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
   }
 }
 
+/**
+ * Appends a default last name to users who have only one name.
+ *
+ * @param string $user
+ *   Drupal user
+ */
+function hipchat_get_user_name($user) {
+  if(!strpos($user->name,' ') && !empty(variable_get('hipchat_default_last_name', NULL))) {
+    return $user->name . ' ' . variable_get('hipchat_default_last_name', NULL);
+  } else {
+    return $user->name;
+  }
+}
