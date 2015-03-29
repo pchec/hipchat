@@ -217,16 +217,16 @@ function hipchat_rules_event_info() {
       'label' => t('User registered in HipChat'),
       'module' => 'hipchat',
       'group' => t('HipChat'),
-      'arguments' => array(
-        'user' => array('type' => 'user', 'label' => t('The user who registered.')),
+      'variables' => array(
+        'account' => array('type' => 'user', 'label' => t('The user who registered.')),
       ),
     ),
     'hipchat_user_deleted' => array(
       'label' => t('User deleted from HipChat'),
       'module' => 'hipchat',
       'group' => t('HipChat'),
-      'arguments' => array(
-        'user' => array('type' => 'user', 'label' => t('The user who was deleted.')),
+      'variables' => array(
+        'account' => array('type' => 'user', 'label' => t('The user who was deleted.')),
       ),
     ),
   );

@@ -141,15 +141,14 @@ function hipchat_create_user($user, $password) {
     drupal_set_message($msg, 'error');
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
-    $user_data = drupal_json_decode($result->data, true);
-    $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'] = $user_data['id'];
     $msg = 'Created HipChat user ' . $params['name'] . '.';
-    if (module_exists('rules')) {
-      rules_invoke_event('hipchat_user_registered', $user);
-    }
     drupal_set_message($msg, 'status');
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
     hipchat_update_user_photo($user);
+    hipchat_sync_user_id($user);
+    if (module_exists('rules')) {
+      rules_invoke_event('hipchat_user_registered', $user);
+    }
   }
 }
 
@@ -182,7 +181,7 @@ function hipchat_get_user_id($user, $old_email = NULL) {
   $id_or_email = field_get_items('user', $user, 'field_hipchat_user_id');
   if ($id_or_email) {
     $id_or_email = $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'];
-  } elseif (!empty($old_email)) {
+  } elseif (isset($old_email) && !empty($old_email)) {
     $id_or_email = $old_email;
   } else {
     $id_or_email = $user->mail;
@@ -237,7 +236,28 @@ function hipchat_sync_user($user, $new_pass = null, $old_email = null) {
     drupal_set_message($msg, 'status');
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
     hipchat_update_user_photo($user);
+    hipchat_sync_user_id($user);
   }
+}
+
+/**
+ * Updates HipChat user ID if it is empty in Drupal.
+ *
+ * @param user $user
+ *   Modified user.
+ */
+function hipchat_sync_user_id($user) {
+  $id = field_get_items('user', $user, 'field_hipchat_user_id');
+  if ($id) {
+    return;
+  }
+  $id_or_email = hipchat_get_user_id($user);
+  $user_data = hipchat_get_user($id_or_email);
+  if (!is_array($user_data)) {
+    return;
+  }
+  $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'] = $user_data['id'];
+  user_save($user, array($user));
 }
 
 /**
@@ -293,10 +313,10 @@ function hipchat_delete_user($user) {
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
     $msg = 'Deleted user ' . $user->name . ' from HipChat.';
+		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
     if (module_exists('rules')) {
       rules_invoke_event('hipchat_user_deleted', $user);
     }
-		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
   }
 }
 
