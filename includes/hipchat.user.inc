@@ -82,7 +82,7 @@ function hipchat_user_form_submit($form, &$form_state) {
   if (empty($hc_user_data)) {
     hipchat_create_user($account->name, $account->mail, $password);
   } elseif ($hc_user_data['is_deleted'] == true) {
-    hipchat_create_user($account->mail, array('password' => $password));
+    hipchat_create_user($account->mail, $password);
   } else {
     hipchat_sync_user($account, $password);
   } 

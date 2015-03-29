@@ -177,9 +177,10 @@ function hipchat_get_user($id_or_email) {
  *   Modified user.
  */
 function hipchat_sync_user($user, $new_pass = null, $old_email = null) {
-  if (isset($user->field_hipchat_user_id)) {
+  $id_or_email = field_get_items('user', $user, 'field_hipchat_user_id');
+  if ($id_or_email) {
     $id_or_email = $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'];
-  } elseif (!empty($old_email)) {
+  } elseif (!$id_or_email && !empty($old_email)) {
     $id_or_email = $old_email;
   } else {
     $id_or_email = $user->mail;
@@ -220,7 +221,8 @@ function hipchat_sync_user($user, $new_pass = null, $old_email = null) {
  *   Modified user.
  */
 function hipchat_update_user_photo($user) {
-  if (isset($user->field_hipchat_user_id)) {
+  $id_or_email = field_get_items('user', $user, 'field_hipchat_user_id');
+  if ($id_or_email) {
     $id_or_email = $user->field_hipchat_user_id[LANGUAGE_NONE][0]['value'];
   } else {
     $id_or_email = $user->mail;
