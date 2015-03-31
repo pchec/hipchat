@@ -37,13 +37,9 @@ function hipchat_rules_action_info() {
     'label' => t('Create a user in HipChat'),
     'group' => t('HipChat'),
     'parameter' => array(
-      'name' => array(
-        'type' => 'text',
-        'label' => t('Name'),
-      ),
-      'email' => array(
-        'type' => 'text',
-        'label' => t('Email'),
+      'user' => array(
+        'type' => 'user',
+        'label' => t('Created user'),
       ),
       'password' => array(
         'type' => 'text',
@@ -78,9 +74,9 @@ function hipchat_rules_action_info() {
     'label' => t('Delete a user from HipChat'),
     'group' => t('HipChat'),
     'parameter' => array(
-      'id' => array(
-        'type' => 'text',
-        'label' => t('HipChat user ID or email'),
+      'user' => array(
+        'type' => 'user',
+        'label' => t('User to be deleted'),
       ),
     ),
   );
@@ -168,11 +164,11 @@ function hipchat_rules_send_message_action($message, $room, $access_token) {
 /**
  * Rules action for creating a user in HipChat.
  */
-function hipchat_rules_create_user_action($name, $email, $password = null) {
+function hipchat_rules_create_user_action($user, $password = null) {
   if (!empty($password)) {
-    hipchat_create_user($name, $email, $password);
+    hipchat_create_user($user, $password);
   } else {
-    hipchat_create_user($name, $email);
+    hipchat_create_user($user);
   }
 }
 
@@ -186,8 +182,8 @@ function hipchat_rules_update_user_action($user, $password = null, $old_email = 
 /**
  * Rules action for deleting a user from HipChat.
  */
-function hipchat_rules_delete_user_action($id_or_email) {
-  hipchat_delete_user($id_or_email);
+function hipchat_rules_delete_user_action($user) {
+  hipchat_delete_user($user);
 }
 
 /**
@@ -209,4 +205,29 @@ function hipchat_rules_add_user_to_room_action($room_id_or_name, $user_id_or_ema
  */
 function hipchat_rules_delete_user_from_room_action($room_id_or_name, $user_id_or_email) {
   hipchat_delete_user_from_room($room_id_or_name, $user_id_or_email);
+}
+
+/**
+* Implementation of hook_rules_event_info().
+* @ingroup rules
+*/
+function hipchat_rules_event_info() {
+  return array(
+    'hipchat_user_registered' => array(
+      'label' => t('User registered in HipChat'),
+      'module' => 'hipchat',
+      'group' => t('HipChat'),
+      'variables' => array(
+        'account' => array('type' => 'user', 'label' => t('The user who registered.')),
+      ),
+    ),
+    'hipchat_user_deleted' => array(
+      'label' => t('User deleted from HipChat'),
+      'module' => 'hipchat',
+      'group' => t('HipChat'),
+      'variables' => array(
+        'account' => array('type' => 'user', 'label' => t('The user who was deleted.')),
+      ),
+    ),
+  );
 }

@@ -33,6 +33,12 @@ function hipchat_admin_form() {
     '#description' => t('Enter the default room to send notices.'),
     '#default_value' => variable_get('hipchat_default_room', NULL),
   );
+  $form['hipchat_default_last_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default last name'),
+    '#description' => t('Enter the default last name which will be appended to users who only use a nickname. (HipChat requires last names.)'),
+    '#default_value' => variable_get('hipchat_default_last_name', NULL),
+  );
 
   return system_settings_form($form);
 }
