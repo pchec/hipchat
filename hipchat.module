@@ -313,6 +313,8 @@ function hipchat_delete_user($user) {
 		watchdog('hipchat', $msg, NULL, WATCHDOG_ERROR);
 	} else {
     $msg = 'Deleted user ' . $user->name . ' from HipChat.';
+    $user->field_hipchat_user_id = null;
+    user_save($user, array($user));
 		watchdog('hipchat', $msg, NULL, WATCHDOG_INFO);
     if (module_exists('rules')) {
       rules_invoke_event('hipchat_user_deleted', $user);
@@ -419,9 +421,9 @@ function hipchat_add_user_to_room($room, $user) {
  *   Drupal user
  */
 function hipchat_get_user_name($user) {
-  if(!strpos($user->name,' ') && !empty(variable_get('hipchat_default_last_name', NULL))) {
-    return $user->name . ' ' . variable_get('hipchat_default_last_name', NULL);
-  } else {
-    return $user->name;
-  }
+  $name = $user->name;
+  if(!strpos($name,' ') && !empty(variable_get('hipchat_default_last_name', NULL))) {
+    $name =  $name . ' ' . variable_get('hipchat_default_last_name', NULL);
+  } 
+  return ucwords(strtolower($name));
 }
